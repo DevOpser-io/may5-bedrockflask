@@ -1,19 +1,18 @@
 name: Build and Deploy
 
 on:
-  repository_dispatch:
-    types: [trigger-build]
   push:
-    branches:
-      - main
-  pull_request:
+    branches: [ "main", "staging" ]
   workflow_dispatch:
 
 env:
   DOCKER_BUILDKIT: 1
+  AWS_REGION: ${{ secrets.AWS_REGION }}
 
 jobs:
   build:
+    # Only run if not a Dependabot PR
+    if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-22.04
     permissions:
       id-token: write
@@ -22,7 +21,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-        # Add Node.js setup with specific version
+    # Add Node.js setup with specific version
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
@@ -71,7 +70,7 @@ jobs:
         sudo apt-get install -y docker.io
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: ${{ secrets.AWS_REGION }}
@@ -93,177 +92,82 @@ jobs:
         echo "Using CACHE_VERSION:"
         echo "${{ steps.cache-version.outputs.version }}"
 
+    - name: Set IMAGE_TAG
+      id: image_tag
+      shell: bash
+      run: |
+        # Determine the branch name based on the event type
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          # For pull requests, use the base branch (target branch)
+          BRANCH_NAME="${{ github.event.pull_request.base.ref }}"
+        else
+          # For pushes, use the ref name
+          BRANCH_NAME="${{ github.ref_name }}"
+        fi
+
+        echo "BRANCH_NAME is: $BRANCH_NAME"
+
+        # Ensure BRANCH_NAME is either 'main' or 'staging'
+        if [ "$BRANCH_NAME" != "main" ] && [ "$BRANCH_NAME" != "staging" ]; then
+          echo "Error: BRANCH_NAME must be 'main' or 'staging'. Got '$BRANCH_NAME'"
+          exit 1
+        fi
+
+        # Construct the IMAGE_TAG
+        IMAGE_TAG="${{ github.sha }}-$BRANCH_NAME"
+
+        echo "IMAGE_TAG is: $IMAGE_TAG"
+
+        # Set the output variable
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
     - name: Build, tag, and push docker image to Amazon ECR
       env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: ${{ secrets.ECR_REPO_NAME }} 
-        IMAGE_TAG: ${{ github.sha }}
+        ECR_REPO_NAME: ${{ secrets.ECR_REPO_NAME }}
+        FLASK_SECRET_NAME: ${{ secrets.FLASK_SECRET_NAME }}
+        DB_NAME_SECRET_NAME: ${{ secrets.DB_NAME_SECRET_NAME }}
+        DB_USER_SECRET_NAME: ${{ secrets.DB_USER_SECRET_NAME }}
+        DB_PASSWORD_SECRET_NAME: ${{ secrets.DB_PASSWORD_SECRET_NAME }}
+        DB_HOST_SECRET_NAME: ${{ secrets.DB_HOST_SECRET_NAME }}
+        DB_PORT_SECRET_NAME: ${{ secrets.DB_PORT_SECRET_NAME }}
+        MAIL_PASSWORD_SECRET_NAME: ${{ secrets.MAIL_PASSWORD_SECRET_NAME }}
+        ADDITIONAL_SECRETS: ${{ secrets.ADDITIONAL_SECRETS }}
+        MAIL_USERNAME: ${{ secrets.EMAIL_FOR_MAIL_SERVER }}
+        MAIL_DEFAULT_SENDER: ${{ secrets.EMAIL_FOR_MAIL_SERVER }}
+        MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
+        MAIL_PORT: ${{ secrets.MAIL_PORT }}
+        MAIL_USE_TLS: ${{ secrets.MAIL_USE_TLS }}
       run: |
+        set -euxo pipefail
+        
+        # Verify required variables
+        if [ -z "${ECR_REPO_NAME}" ]; then
+          echo "Error: ECR_REPO_NAME must be set"
+          exit 1
+        fi
+
+        REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+        IMAGE_TAG="${{ steps.image_tag.outputs.image_tag }}"
+        
+        echo "Building and pushing image: $REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG"
+        
         docker build \
-          --build-arg FLASK_SECRET_NAME=${{ secrets.FLASK_SECRET_NAME }} \
+          --build-arg FLASK_SECRET_NAME=${FLASK_SECRET_NAME} \
           --build-arg CACHE_VERSION=${{ steps.cache-version.outputs.version }} \
-          --build-arg REGION=${{secrets.AWS_REGION}} \
-          --build-arg DB_NAME_SECRET_NAME=${{ secrets.DB_NAME_SECRET_NAME }} \
-          --build-arg DB_USER_SECRET_NAME=${{ secrets.DB_USER_SECRET_NAME }} \
-          --build-arg DB_PASSWORD_SECRET_NAME=${{ secrets.DB_PASSWORD_SECRET_NAME }} \
-          --build-arg DB_HOST_SECRET_NAME=${{ secrets.DB_HOST_SECRET_NAME }} \
-          --build-arg DB_PORT_SECRET_NAME=${{ secrets.DB_PORT_SECRET_NAME }} \
-          --build-arg MAIL_PASSWORD_SECRET_NAME=${{ secrets.MAIL_PASSWORD_SECRET_NAME }} \
-          --build-arg ADDITIONAL_SECRETS=${{ secrets.ADDITIONAL_SECRETS }} \
-          --build-arg MAIL_USERNAME=${{ secrets.MAIL_USERNAME }} \
-          --build-arg MAIL_DEFAULT_SENDER=${{ secrets.MAIL_DEFAULT_SENDER }} \
-          --build-arg MAIL_SERVER=${{ secrets.MAIL_SERVER }} \
-          --build-arg MAIL_PORT=${{ secrets.MAIL_PORT }} \
-          --build-arg MAIL_USE_TLS=${{ secrets.MAIL_USE_TLS }} \
+          --build-arg REGION=${AWS_REGION} \
+          --build-arg DB_NAME_SECRET_NAME=${DB_NAME_SECRET_NAME} \
+          --build-arg DB_USER_SECRET_NAME=${DB_USER_SECRET_NAME} \
+          --build-arg DB_PASSWORD_SECRET_NAME=${DB_PASSWORD_SECRET_NAME} \
+          --build-arg DB_HOST_SECRET_NAME=${DB_HOST_SECRET_NAME} \
+          --build-arg DB_PORT_SECRET_NAME=${DB_PORT_SECRET_NAME} \
+          --build-arg MAIL_PASSWORD_SECRET_NAME=${MAIL_PASSWORD_SECRET_NAME} \
+          --build-arg ADDITIONAL_SECRETS=${ADDITIONAL_SECRETS} \
+          --build-arg MAIL_USERNAME=${MAIL_USERNAME} \
+          --build-arg MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER} \
+          --build-arg MAIL_SERVER=${MAIL_SERVER} \
+          --build-arg MAIL_PORT=${MAIL_PORT} \
+          --build-arg MAIL_USE_TLS=${MAIL_USE_TLS} \
           --build-arg ADMIN_USERS_SECRET_NAME=${{ secrets.ADMIN_USERS_SECRET_NAME }} \
-          -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-
-    - name: Debug event information
-      run: |
-        echo "Event name: ${{ github.event_name }}"
-        echo "Event action: ${{ github.event.action }}"
-        echo "Base ref: ${{ github.base_ref }}"
-        echo "Ref: ${{ github.ref }}"
-
-    - name: Update Terraform Cloud Variable in destination workspace - Production
-      if: |
-        github.event_name == 'repository_dispatch' && github.event.action == 'trigger-build' ||
-        (github.event_name == 'pull_request' && github.base_ref == 'main') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      run: |
-        curl \
-          --header "Authorization: Bearer ${{ secrets.TFC_TOKEN }}" \
-          --header "Content-Type: application/vnd.api+json" \
-          --request PATCH \
-          --data '{
-            "data": {
-              "id": "${{ secrets.CONTAINER_LABEL_AIDEMO_VARIABLE_ID }}",
-              "type": "vars",
-              "attributes": {
-                "value": "${{ secrets.ECR_REPO_NAME }}:${{ github.sha }}"
-              }
-            }
-          }' \
-        https://app.terraform.io/api/v2/workspaces/${{ secrets.CONTAINER_LABEL_AIDEMO_WORKSPACE_ID }}/vars/${{ secrets.CONTAINER_LABEL_AIDEMO_VARIABLE_ID }}
-
-    - name: Update Terraform Cloud Variable in destination workspace - Staging
-      if: |
-        github.event_name == 'repository_dispatch' && github.event.action == 'trigger-build' ||
-        (github.event_name == 'pull_request' && github.base_ref == 'staging') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/staging')
-      run: |
-        curl \
-          --header "Authorization: Bearer ${{ secrets.TFC_TOKEN }}" \
-          --header "Content-Type: application/vnd.api+json" \
-          --request PATCH \
-          --data '{
-            "data": {
-              "id": "${{ secrets.CONTAINER_LABEL_AIDEMO_VARIABLE_ID_STAGING }}",
-              "type": "vars",
-              "attributes": {
-                "value": "${{ secrets.ECR_REPO_NAME }}:${{ github.sha }}"
-              }
-            }
-          }' \
-        https://app.terraform.io/api/v2/workspaces/${{ secrets.CONTAINER_LABEL_AIDEMO_WORKSPACE_ID_STAGING }}/vars/${{ secrets.CONTAINER_LABEL_AIDEMO_VARIABLE_ID_STAGING }}
-
-    - name: Update Source workspace Terraform Cloud Variable - Production
-      if: |
-        github.event_name == 'repository_dispatch' && github.event.action == 'trigger-build' ||
-        (github.event_name == 'pull_request' && github.base_ref == 'main') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      run: |
-        curl \
-          --header "Authorization: Bearer ${{ secrets.TFC_TOKEN }}" \
-          --header "Content-Type: application/vnd.api+json" \
-          --request PATCH \
-          --data '{
-            "data": {
-              "id": "${{ secrets.source_workspace_flaskai_variable_id }}",
-              "type": "vars",
-              "attributes": {
-                "value": "${{ secrets.ECR_REPO_NAME }}:${{ github.sha }}"
-              }
-            }
-          }' \
-        https://app.terraform.io/api/v2/workspaces/${{ secrets.source_workspace_id_flaskai }}/vars/${{ secrets.source_workspace_flaskai_variable_id }}
-
-    - name: Update Source workspace Terraform Cloud Variable - Staging
-      if: |
-        github.event_name == 'repository_dispatch' && github.event.action == 'trigger-build' ||
-        (github.event_name == 'pull_request' && github.base_ref == 'staging') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/staging')
-      run: |
-        curl \
-          --header "Authorization: Bearer ${{ secrets.TFC_TOKEN }}" \
-          --header "Content-Type: application/vnd.api+json" \
-          --request PATCH \
-          --data '{
-            "data": {
-              "id": "${{ secrets.source_workspace_flaskai_variable_id_staging }}",
-              "type": "vars",
-              "attributes": {
-                "value": "${{ secrets.ECR_REPO_NAME }}:${{ github.sha }}"
-              }
-            }
-          }' \
-        https://app.terraform.io/api/v2/workspaces/${{ secrets.source_workspace_id_flaskai }}/vars/${{ secrets.source_workspace_flaskai_variable_id_staging }}
-
-    - name: Trigger Terraform Cloud Run - Production
-      if: |
-        github.event_name == 'repository_dispatch' && github.event.action == 'trigger-build' ||
-        (github.event_name == 'pull_request' && github.base_ref == 'main') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      run: |
-        curl \
-          --header "Authorization: Bearer ${{ secrets.TFC_TOKEN }}" \
-          --header "Content-Type: application/vnd.api+json" \
-          --request POST \
-          --data '{
-            "data": {
-              "attributes": {
-                "is-destroy":false,
-                "message":"Triggered from GitHub Actions"
-              },
-              "type":"runs",
-              "relationships": {
-                "workspace": {
-                  "data": {
-                    "type":"workspaces",
-                    "id":"${{ secrets.container_label_aidemo_workspace_id}}"
-                  }
-                }
-              }
-            }
-          }' \
-          https://app.terraform.io/api/v2/runs
-
-    - name: Trigger Terraform Cloud Run - Staging
-      if: |
-        github.event_name == 'repository_dispatch' && github.event.action == 'trigger-build' ||
-        (github.event_name == 'pull_request' && github.base_ref == 'staging') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/staging')
-      run: |
-        curl \
-          --header "Authorization: Bearer ${{ secrets.TFC_TOKEN }}" \
-          --header "Content-Type: application/vnd.api+json" \
-          --request POST \
-          --data '{
-            "data": {
-              "attributes": {
-                "is-destroy":false,
-                "message":"Triggered from GitHub Actions"
-              },
-              "type":"runs",
-              "relationships": {
-                "workspace": {
-                  "data": {
-                    "type":"workspaces",
-                    "id":"${{ secrets.CONTAINER_LABEL_AIDEMO_WORKSPACE_ID_STAGING }}"
-                  }
-                }
-              }
-            }
-          }' \
-          https://app.terraform.io/api/v2/runs
+          -t $REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG .
+        
+        docker push $REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG
