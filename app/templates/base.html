@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}AI Chat{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dist/bundle.css') }}">
+    {% if request.endpoint and 'mfa' in request.endpoint %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='dist/mfa.css') }}">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='flash.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <script src="{{ url_for('static', filename='csrf.js') }}"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <div class="app-container {% if request.endpoint == 'routes_bp.chat_page' %}chat-page{% endif %}">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Add nav-links at the top of sidebar -->
+            <nav class="nav-links">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('admin.index') }}" class="nav-link {% if request.endpoint == 'admin.index' %}active{% endif %}">Admin</a>
+                    {% endif %}
+                    <a href="{{ url_for('routes_bp.chat_page') }}" class="nav-link {% if request.endpoint == 'routes_bp.chat_page' %}active{% endif %}">Chat</a>
+                    <a href="{{ url_for('auth.account') }}" class="nav-link account {% if request.endpoint == 'auth.account' %}active{% endif %}">Account</a>
+                    <a href="{{ url_for('auth.logout') }}" class="nav-link sign-out">Sign Out</a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}">Login</a>
+                    <a href="{{ url_for('auth.signup') }}" class="nav-link account {% if request.endpoint == 'auth.signup' %}active{% endif %}">Sign Up</a>
+                {% endif %}
+            </nav>
+            <div class="sidebar-header">
+                <span>History</span>
+                <button id="new-chat-btn" class="new-chat-btn">New Chat</button>
+            </div>
+            <div class="chat-options">
+                <label class="switch">
+                    <input type="checkbox" id="temp-chat-toggle">
+                    <span class="slider round"></span>
+                    <span class="switch-label">Temporary Chat</span>
+                </label>
+            </div>
+            <div class="conversation-list">
+                <!-- Conversations will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="header">
+                <button class="menu-button" aria-label="Toggle menu" aria-expanded="false"></button>
+                <div class="header-left">
+                    <img src="{{ url_for('static', filename='icon.png') }}" alt="DevOpser Logo" />
+                    <span class="user-greeting">Hello {{ current_user.name }}!</span>
+                </div>
+                <nav class="nav-links">
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin.index') }}" class="nav-link {% if request.endpoint == 'admin.index' %}active{% endif %}">Admin</a>
+                        {% endif %}
+                        <a href="{{ url_for('routes_bp.chat_page') }}" class="nav-link {% if request.endpoint == 'routes_bp.chat_page' %}active{% endif %}">Chat</a>
+                        <a href="{{ url_for('auth.account') }}" class="nav-link account {% if request.endpoint == 'auth.account' %}active{% endif %}">Account</a>
+                        <a href="{{ url_for('auth.logout') }}" class="nav-link sign-out">Sign Out</a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}">Login</a>
+                        <a href="{{ url_for('auth.signup') }}" class="nav-link account {% if request.endpoint == 'auth.signup' %}active{% endif %}">Sign Up</a>
+                    {% endif %}
+                </nav>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flashes">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">
+                                {{ message }}
+                                <button type="button" class="close-button" aria-label="Dismiss"> </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    {% else %}
+    <div class="landing-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flashes">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            {{ message }}
+                            <button type="button" class="close-button" aria-label="Dismiss"> </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        {% block landing_content %}{% endblock %}
+    </div>
+    {% endif %}
+    <script nonce="{{ nonce }}" defer src="{{ url_for('static', filename='dist/bundle.js') }}"></script>
+    {% if request.endpoint and 'mfa' in request.endpoint %}
+    <script nonce="{{ nonce }}" defer src="{{ url_for('static', filename='dist/mfa.js') }}"></script>
+    {% endif %}
+    <script nonce="{{ nonce }}" src="{{ url_for('static', filename='flash.js') }}"></script>
+</body>
+</html>

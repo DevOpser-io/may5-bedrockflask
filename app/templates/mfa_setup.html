@@ -1,0 +1,81 @@
+{% extends "mfa_base.html" %}
+
+{% block extra_head %}
+<style>
+.setup-info {
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.setup-info p {
+    color: #374151;
+    margin: 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mfa-setup-page">
+    <div class="mfa-container">
+        <div class="mfa-card">
+            <h2>Set Up Two-Factor Authentication</h2>
+            
+            <div class="progress-bar">
+                <div class="steps">
+                    <div class="step active">1. Setup</div>
+                    <div class="step">2. Verify</div>
+                </div>
+            </div>
+
+            <div class="setup-content">
+                <div class="setup-info">
+                    <p>Please set up an authenticator app (like Microsoft Authenticator or Authy) to secure your account.</p>
+                </div>
+
+                <div id="authenticator-section" class="setup-section active">
+                    <div class="qr-container">
+                        {% if qr_svg %}
+                            <div class="qr-image">
+                                {{ qr_svg|safe }}
+                            </div>
+                            <button type="button" class="toggle-key-btn js-toggle-key">
+                                Can't scan? Enter key manually
+                            </button>
+                            <div class="secret-key hidden">
+                                <code>{{ mfa_secret }}</code>
+                            </div>
+                        {% else %}
+                            <div class="error">Failed to generate QR code</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <form method="POST" class="mfa-setup-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="method" value="authenticator">
+                    
+                    <div class="verification-section">
+                        <label for="verification_code">Enter Verification Code</label>
+                        <input type="text" 
+                               name="verification_code" 
+                               id="verification_code" 
+                               class="verification-input" 
+                               inputmode="numeric"
+                               maxlength="6"
+                               pattern="[0-9]*"
+                               placeholder="000000"
+                               autocomplete="one-time-code"
+                               required>
+                        
+                        <button type="submit" name="action" value="verify" class="submit-button">
+                            Verify and Enable 2FA
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,132 @@
+<!-- app/templates/mfa_verify.html -->
+{% extends "mfa_base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dist/mfa.css') }}">
+<style>
+.status-message {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    display: none;
+}
+
+.status-message:not(:empty) {
+    display: block;
+}
+
+.status-message.success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #34d399;
+}
+
+.status-message.error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mfa-verify-page">
+    <div class="mfa-container">
+        <div class="auth-form-container">
+            <h2>Two-Factor Authentication</h2>
+            
+            <div class="mfa-tabs">
+                <button class="tab-button {% if not active_tab or active_tab == 'authenticator' %}active{% endif %}" data-tab="authenticator">
+                    <span class="tab-icon">📱</span>
+                    Authenticator
+                </button>
+                <button class="tab-button {% if active_tab == 'email' %}active{% endif %}" data-tab="email">
+                    <span class="tab-icon">📧</span>
+                    Email
+                </button>
+                <button class="tab-button {% if active_tab == 'backup' %}active{% endif %}" data-tab="backup">
+                    <span class="tab-icon">🔑</span>
+                    Backup Code
+                </button>
+            </div>
+
+            <!-- Authenticator Tab -->
+            <div class="tab-content" 
+                 id="authenticator-tab"
+                 {% if not active_tab or active_tab == 'authenticator' %}aria-hidden="false"{% else %}aria-hidden="true"{% endif %}>
+                <p class="text-center">Enter the code from your authenticator app.</p>
+                <form method="POST" class="auth-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="token-auth">Authenticator Code</label>
+                        <input type="text" 
+                               name="token" 
+                               id="token-auth" 
+                               required 
+                               autocomplete="off" 
+                               inputmode="numeric" 
+                               pattern="[0-9]*" 
+                               maxlength="6" 
+                               placeholder="Enter 6-digit code">
+                    </div>
+                    <button type="submit" class="auth-button login">Verify</button>
+                </form>
+            </div>
+
+            <!-- Email Tab -->
+            <div class="tab-content" 
+                 id="email-tab"
+                 {% if active_tab == 'email' %}aria-hidden="false"{% else %}aria-hidden="true"{% endif %}>
+                <div class="email-verification-section">
+                    <div class="email-info">
+                        <p>Need a verification code sent to your email?</p>
+                        <form action="{{ url_for('auth.send_mfa_code') }}" method="POST" class="email-code-form" onsubmit="return false;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="auth-button" data-loading-text="Sending...">Send Code</button>
+                        </form>
+                        <div class="status-messages"></div>
+                    </div>
+                </div>
+
+                <form method="POST" class="auth-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="token-email">Email Verification Code</label>
+                        <input type="text" 
+                               name="token" 
+                               id="token-email" 
+                               required 
+                               autocomplete="off" 
+                               inputmode="numeric" 
+                               pattern="[0-9]*" 
+                               maxlength="6" 
+                               placeholder="Enter 6-digit code">
+                    </div>
+                    <button type="submit" class="auth-button login">Verify</button>
+                </form>
+            </div>
+
+            <!-- Backup Code Tab -->
+            <div class="tab-content" 
+                 id="backup-tab"
+                 {% if active_tab == 'backup' %}aria-hidden="false"{% else %}aria-hidden="true"{% endif %}>
+                <p class="text-center">Use one of your backup codes to verify your identity.</p>
+                <form method="POST" class="auth-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="backup_code">Backup Code</label>
+                        <input type="text" 
+                               name="backup_code" 
+                               id="backup_code" 
+                               autocomplete="off"
+                               placeholder="Enter your backup code">
+                    </div>
+                    <button type="submit" class="auth-button login">Verify</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="flash-messages" class="flashes"></div>
+{% endblock %}

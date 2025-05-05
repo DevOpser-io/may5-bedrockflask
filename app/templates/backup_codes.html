@@ -1,0 +1,95 @@
+<!-- app/templates/backup_codes.html -->
+{% extends "mfa_base.html" %}
+
+{% block content %}
+<div class="auth-form-container">
+    <h2>Save Your Backup Codes</h2>
+    <p class="important-notice">Important: Save these codes in a secure place. They will not be shown again!</p>
+    
+    <div class="backup-codes-container">
+        {% for code in backup_codes %}
+            <div class="backup-code">{{ code }}</div>
+        {% endfor %}
+    </div>
+
+    <div class="backup-info">
+        <p>Each backup code can be used once if you lose access to your authenticator app.</p>
+        <p>Keep these codes somewhere safe but accessible.</p>
+    </div>
+
+    <div class="actions">
+        <button onclick="printCodes()" class="secondary-button">Print Codes</button>
+        <a href="{{ url_for('routes_bp.chat_page') }}" class="primary-button">Continue to Chat</a>
+    </div>
+</div>
+
+<style>
+.auth-form-container {
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.important-notice {
+    color: #dc2626;
+    text-align: center;
+    margin-bottom: 2rem;
+    font-weight: 500;
+}
+
+.backup-codes-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+.backup-code {
+    background: #f3f4f6;
+    padding: 1rem;
+    text-align: center;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 1.2rem;
+}
+
+.backup-info {
+    margin: 2rem 0;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.secondary-button {
+    padding: 0.75rem 1.5rem;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.primary-button {
+    padding: 0.75rem 1.5rem;
+    background: #dc2626;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+}
+</style>
+
+<script nonce="{{ nonce }}">
+function printCodes() {
+    window.print();
+}
+</script>
+{% endblock %}

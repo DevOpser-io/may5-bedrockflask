@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block landing_content %}
+<div class="landing-page">
+    <div class="landing-content">
+        <img src="{{ url_for('static', filename='icon.png') }}" alt="DevOpser Logo" class="landing-logo"/>
+        <h1>Welcome to AI Chat</h1>
+        <div class="auth-buttons">
+            <a href="{{ url_for('auth.login') }}" class="auth-button login">Log In</a>
+            <a href="{{ url_for('auth.signup') }}" class="auth-button signup">Sign Up</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

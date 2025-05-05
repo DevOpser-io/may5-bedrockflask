@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-admin-user
+spec:
+  template:
+    spec:
+      containers:
+      - name: create-admin
+        image: ${ECR_REPOSITORY_URL}:${IMAGE_TAG}
+        command: ["python"]
+        args: ["-c", "from app.commands import create_admin_user; create_admin_user('${ADMIN_EMAIL}', '${ADMIN_PASSWORD}')"]
+        env:
+        - name: FLASK_APP
+          value: "app"
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: database-url
+        # Add other necessary environment variables from your app configuration
+      restartPolicy: Never
+  backoffLimit: 3

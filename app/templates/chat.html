@@ -1,0 +1,52 @@
+<!-- app/templates/chat_interface.html -->
+{% extends "base.html" %}
+
+{% block title %}AI Chat{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    {% for message in chat_history %}
+    <div class="message-role {{ 'user' if message.role == 'user' else '' }}">
+        {{ message.role.capitalize() }}
+    </div>
+    <div class="{{ 'user-message' if message.role == 'user' else 'assistant-message' }}">
+        {{ message.content }}
+    </div>
+    {% endfor %}
+</div>
+<div class="message-input-container">
+    <form id="chat-form" class="message-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <textarea 
+            id="message-input" 
+            name="message" 
+            placeholder="Message..." 
+            required
+            rows="1"
+            aria-label="Type your message"
+        ></textarea>
+        <div class="button-group">
+            <button type="submit" id="send-btn" class="icon-button" aria-label="Send message">
+                <span>Send</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+            <button type="button" id="stop-btn" class="icon-button" disabled aria-label="Stop generation">
+                <span>Stop</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+            </button>
+            <button type="button" id="clear-btn" class="icon-button" aria-label="Clear chat">
+                <span>Clear</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

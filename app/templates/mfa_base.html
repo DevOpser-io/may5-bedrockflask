@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Two-Factor Authentication{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dist/bundle.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dist/mfa.css') }}">
+    <script nonce="{{ nonce }}" src="{{ url_for('static', filename='flash.js') }}"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="mfa-app">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flashes">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            {{ message }}
+                            <button type="button" class="close-button" aria-label="Dismiss">×</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- Only load MFA script once here -->
+    <script nonce="{{ nonce }}" defer src="{{ url_for('static', filename='dist/mfa.js') }}"></script>
+</body>
+</html>
